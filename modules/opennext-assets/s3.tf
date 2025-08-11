@@ -35,14 +35,6 @@ resource "aws_s3_bucket_policy" "assets" {
   policy = data.aws_iam_policy_document.read_assets_bucket.json
 }
 
-resource "aws_s3_bucket_versioning" "assets" {
-  bucket = aws_s3_bucket.assets.bucket
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
 resource "aws_s3_bucket_server_side_encryption_configuration" "assets" {
   bucket = aws_s3_bucket.assets.bucket
 
@@ -57,9 +49,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "assets" {
 resource "aws_s3_bucket_replication_configuration" "logs" {
   count = var.replication_configuration == null ? 0 : 1
 
-  depends_on = [aws_s3_bucket_versioning.assets]
-  bucket     = aws_s3_bucket.assets.bucket
-  role       = var.replication_configuration.role
+  bucket = aws_s3_bucket.assets.bucket
+  role   = var.replication_configuration.role
 
   dynamic "rule" {
     for_each = toset(var.replication_configuration.rules)
@@ -91,41 +82,6 @@ resource "aws_s3_bucket_logging" "assets" {
 
   target_bucket = var.logging_config.target_bucket
   target_prefix = var.logging_config.target_prefix
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "assets" {
-  depends_on = [aws_s3_bucket_versioning.assets]
-  bucket     = aws_s3_bucket.assets.bucket
-
-  rule {
-    id     = "abort-failed-uploads"
-    status = "Enabled"
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 1
-    }
-  }
-
-  rule {
-    id     = "clear-versioned-assets"
-    status = "Enabled"
-
-    filter {}
-
-    noncurrent_version_expiration {
-      noncurrent_days = 90
-    }
-
-    noncurrent_version_transition {
-      noncurrent_days = 30
-      storage_class   = "STANDARD_IA"
-    }
-
-    noncurrent_version_transition {
-      noncurrent_days = 60
-      storage_class   = "GLACIER"
-    }
-  }
 }
 
 resource "aws_cloudfront_origin_access_identity" "assets" {

@@ -96,7 +96,7 @@ locals {
     environment_variables = merge({
       CACHE_BUCKET_NAME         = module.assets.assets_bucket.bucket
       CACHE_BUCKET_KEY_PREFIX   = "cache"
-      CACHE_BUCKET_REGION       = data.aws_region.current.name
+      CACHE_BUCKET_REGION       = data.aws_region.current.region
       REVALIDATION_QUEUE_URL    = module.revalidation_queue.queue.url
       REVALIDATION_QUEUE_REGION = data.aws_region.current.name
       },
