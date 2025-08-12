@@ -98,7 +98,7 @@ locals {
       CACHE_BUCKET_KEY_PREFIX   = "cache"
       CACHE_BUCKET_REGION       = data.aws_region.current.region
       REVALIDATION_QUEUE_URL    = module.revalidation_queue.queue.url
-      REVALIDATION_QUEUE_REGION = data.aws_region.current.name
+      REVALIDATION_QUEUE_REGION = data.aws_region.current.region
       },
       var.use_tagcache == true ? {
         CACHE_DYNAMO_TABLE = try(aws_dynamodb_table.tag_cache[0].id, "")

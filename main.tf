@@ -13,7 +13,7 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  aws_region = var.region != null ? var.region : data.aws_region.current.name
+  aws_region = var.region != null ? var.region : data.aws_region.current.region
 }
 
 /**

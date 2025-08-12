@@ -50,6 +50,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
     id     = "abort-failed-uploads"
     status = "Enabled"
 
+    filter {}
+
     abort_incomplete_multipart_upload {
       days_after_initiation = 1
     }
@@ -58,6 +60,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
   rule {
     id     = "log-expiration"
     status = "Enabled"
+
+    filter {}
 
     expiration {
       days = var.retention
