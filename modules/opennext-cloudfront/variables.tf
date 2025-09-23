@@ -196,3 +196,8 @@ variable "remove_headers_config" {
   })
 }
 
+variable shield_enabled {
+  description = "Origin Shield configuration for the CloudFront distribution"
+  type = bool
+  default = false
+}
