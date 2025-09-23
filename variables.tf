@@ -330,6 +330,7 @@ variable "cloudfront" {
     aliases             = list(string)
     acm_certificate_arn = string
     comment             = optional(string)
+    shield_enabled      = optional(bool)
     assets_paths        = optional(list(string))
     custom_headers = optional(list(object({
       header   = string

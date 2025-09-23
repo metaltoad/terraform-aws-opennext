@@ -248,6 +248,8 @@ module "cloudfront" {
 
   price_class = local.cloudfront.price_class
 
+  shield_enabled = local.cloudfront.shield_enabled
+
   comment                       = local.cloudfront.comment
   logging_bucket_domain_name    = module.cloudfront_logs.logs_s3_bucket.bucket_regional_domain_name
   assets_origin_access_identity = module.assets.cloudfront_origin_access_identity.cloudfront_access_identity_path
