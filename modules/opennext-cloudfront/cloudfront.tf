@@ -199,6 +199,11 @@ resource "aws_cloudfront_distribution" "distribution" {
     s3_origin_config {
       origin_access_identity = var.assets_origin_access_identity
     }
+
+    origin_shield {
+      enabled = var.shield_enabled
+      origin_shield_region = var.region
+    }
   }
 
   # Server Function Origin
@@ -213,6 +218,11 @@ resource "aws_cloudfront_distribution" "distribution" {
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
+
+    origin_shield {
+      enabled = var.shield_enabled
+      origin_shield_region = var.region
+    }
   }
 
   # Image Optimization Function Origin
@@ -226,6 +236,11 @@ resource "aws_cloudfront_distribution" "distribution" {
       https_port             = 443
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
+    }
+
+    origin_shield {
+      enabled = var.shield_enabled
+      origin_shield_region = var.region
     }
   }
 

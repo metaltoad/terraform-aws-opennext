@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 4.0"
+      version = "6.14.1"
     }
   }
 }
@@ -247,6 +247,8 @@ module "cloudfront" {
   default_tags = var.default_tags
 
   price_class = local.cloudfront.price_class
+
+  shield_enabled = local.cloudfront.shield_enabled
 
   comment                       = local.cloudfront.comment
   logging_bucket_domain_name    = module.cloudfront_logs.logs_s3_bucket.bucket_regional_domain_name
