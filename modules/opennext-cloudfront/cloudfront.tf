@@ -2,6 +2,9 @@ locals {
   server_origin_id             = "${var.prefix}-server-origin"
   assets_origin_id             = "${var.prefix}-assets-origin"
   image_optimization_origin_id = "${var.prefix}-image-optimization-origin"
+
+  root_origin_id        = "${var.prefix}-root-origin"
+  root_redirect_domain  = length(var.root_redirect) > 0 ? var.root_redirect[0] : null
 }
 
 resource "aws_cloudfront_function" "host_header_function" {
@@ -161,6 +164,10 @@ resource "aws_cloudfront_response_headers_policy" "response_headers_policy" {
   }
 }
 
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
 resource "aws_cloudfront_distribution" "distribution" {
   provider        = aws.global
   price_class     = var.price_class
@@ -241,6 +248,27 @@ resource "aws_cloudfront_distribution" "distribution" {
     origin_shield {
       enabled = var.shield_enabled
       origin_shield_region = var.region
+    }
+  }
+
+  dynamic "origin" {
+    for_each = local.root_redirect_domain != null ? [local.root_redirect_domain] : []
+
+    content {
+      domain_name = origin.value
+      origin_id   = local.root_origin_id
+
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+
+      origin_shield {
+        enabled             = var.shield_enabled
+        origin_shield_region = var.region
+      }
     }
   }
 
@@ -355,6 +383,23 @@ resource "aws_cloudfront_distribution" "distribution" {
         data.aws_cloudfront_origin_request_policy.origin_request_policy[0].id,
         aws_cloudfront_origin_request_policy.origin_request_policy[0].id
       )
+
+      compress               = true
+      viewer_protocol_policy = "redirect-to-https"
+    }
+  }
+
+  dynamic "ordered_cache_behavior" {
+    for_each = local.root_redirect_domain != null ? [true] : []
+
+    content {
+      path_pattern     = "/"
+      allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+      cached_methods   = ["GET", "HEAD", "OPTIONS"]
+      target_origin_id = local.root_origin_id
+
+      # No custom origin request or response headers policies – matches your screenshot
+      cache_policy_id = data.aws_cloudfront_cache_policy.caching_disabled.id
 
       compress               = true
       viewer_protocol_policy = "redirect-to-https"

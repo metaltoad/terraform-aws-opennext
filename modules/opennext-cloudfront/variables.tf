@@ -201,3 +201,9 @@ variable shield_enabled {
   type = bool
   default = false
 }
+
+variable "root_redirect" {
+  description = "Optional list with a single domain to use as the origin for / (e.g. [\"grammy.staging.ncp.consulting\"])"
+  type        = list(string)
+  default     = []
+}

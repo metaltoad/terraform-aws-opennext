@@ -327,6 +327,7 @@ variable "warmer_options" {
 
 variable "cloudfront" {
   type = object({
+    root_redirect       = optional(list(string), [])
     aliases             = list(string)
     acm_certificate_arn = string
     comment             = optional(string)
