@@ -273,5 +273,6 @@ module "cloudfront" {
   custom_waf                = local.cloudfront.custom_waf
   waf_logging_configuration = local.cloudfront.waf_logging_configuration
 
-  root_redirect = local.cloudfront.root_redirect
+  extra_origins   = local.cloudfront.extra_origins
+  extra_behaviors = local.cloudfront.extra_behaviors
 }
