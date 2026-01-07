@@ -433,7 +433,6 @@ variable "cloudfront" {
       viewer_protocol_policy = optional(string, "redirect-to-https")
     })), [])
   })
-  default = {}
 }
 
 variable "use_tagcache" {
