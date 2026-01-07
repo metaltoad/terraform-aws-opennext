@@ -209,7 +209,6 @@ variable "extra_origins" {
     origin_type = optional(string, "custom")
     origin_path = optional(string, null)
   }))
-  default = {}
 }
 
 variable "extra_behaviors" {
@@ -223,5 +222,4 @@ variable "extra_behaviors" {
     cached_methods    = optional(list(string), ["GET", "HEAD", "OPTIONS"])
     viewer_protocol_policy = optional(string, "redirect-to-https")
   }))
-  default = []
 }
