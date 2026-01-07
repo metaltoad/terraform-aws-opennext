@@ -273,6 +273,6 @@ module "cloudfront" {
   custom_waf                = local.cloudfront.custom_waf
   waf_logging_configuration = local.cloudfront.waf_logging_configuration
 
-  extra_origins   = local.cloudfront.extra_origins
-  extra_behaviors = local.cloudfront.extra_behaviors
+  extra_origins   = try(var.cloudfront.extra_origins, {})
+  extra_behaviors = try(var.cloudfront.extra_behaviors, [])
 }
