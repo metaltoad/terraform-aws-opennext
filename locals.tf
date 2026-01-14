@@ -7,6 +7,7 @@ locals {
    * CloudFront Options
    **/
   cloudfront = {
+    root_redirect       = var.cloudfront.root_redirect
     aliases             = var.cloudfront.aliases
     acm_certificate_arn = var.cloudfront.acm_certificate_arn
     comment             = var.cloudfront.comment

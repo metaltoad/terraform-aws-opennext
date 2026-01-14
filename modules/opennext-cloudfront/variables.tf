@@ -201,3 +201,25 @@ variable shield_enabled {
   type = bool
   default = false
 }
+
+variable "extra_origins" {
+  description = "Extra origins keyed by a friendly name."
+  type = map(object({
+    domain_name = string
+    origin_type = optional(string, "custom")
+    origin_path = optional(string, null)
+  }))
+}
+
+variable "extra_behaviors" {
+  description = "Extra cache behaviors that route path_pattern to an origin_name in extra_origins."
+  type = list(object({
+    path_pattern      = string
+    origin_name       = string
+    cache_policy_name = optional(string, null)
+    cache_policy_id   = optional(string, null)
+    allowed_methods   = optional(list(string), ["GET", "HEAD", "OPTIONS"])
+    cached_methods    = optional(list(string), ["GET", "HEAD", "OPTIONS"])
+    viewer_protocol_policy = optional(string, "redirect-to-https")
+  }))
+}

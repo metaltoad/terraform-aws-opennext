@@ -2,6 +2,22 @@ locals {
   server_origin_id             = "${var.prefix}-server-origin"
   assets_origin_id             = "${var.prefix}-assets-origin"
   image_optimization_origin_id = "${var.prefix}-image-optimization-origin"
+
+  root_origin_id        = "${var.prefix}-root-origin"
+  managed_cache_policy_names = toset(compact([
+    for b in var.extra_behaviors : try(b.cache_policy_name, null)
+  ]))
+  extra_behaviors_sorted = [
+    for k in sort([
+      for i, b in var.extra_behaviors :
+      format("%03d|%03d|%s", 999 - length(b.path_pattern), i, b.path_pattern)
+    ]) : var.extra_behaviors[tonumber(split("|", k)[1])]
+  ]
+}
+
+data "aws_cloudfront_cache_policy" "managed" {
+  for_each = local.managed_cache_policy_names
+  name     = each.value
 }
 
 resource "aws_cloudfront_function" "host_header_function" {
@@ -161,6 +177,10 @@ resource "aws_cloudfront_response_headers_policy" "response_headers_policy" {
   }
 }
 
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
 resource "aws_cloudfront_distribution" "distribution" {
   provider        = aws.global
   price_class     = var.price_class
@@ -241,6 +261,35 @@ resource "aws_cloudfront_distribution" "distribution" {
     origin_shield {
       enabled = var.shield_enabled
       origin_shield_region = var.region
+    }
+  }
+
+  dynamic "origin" {
+    for_each = var.extra_origins
+
+    content {
+      domain_name = origin.value.domain_name
+      origin_id   = "${var.prefix}-${origin.key}-origin"
+
+      origin_path = try(origin.value.origin_path, null)
+
+      # Most use-cases here are "custom" origins
+      dynamic "custom_origin_config" {
+        for_each = try(origin.value.origin_type, "custom") == "custom" ? [true] : []
+        content {
+          http_port              = 80
+          https_port             = 443
+          origin_protocol_policy = "https-only"
+          origin_ssl_protocols   = ["TLSv1.2"]
+        }
+      }
+
+      # (Optional) if you ever want to support S3 extra origins later, add s3_origin_config here
+
+      origin_shield {
+        enabled              = var.shield_enabled
+        origin_shield_region = var.region
+      }
     }
   }
 
@@ -358,6 +407,31 @@ resource "aws_cloudfront_distribution" "distribution" {
 
       compress               = true
       viewer_protocol_policy = "redirect-to-https"
+    }
+  }
+
+  dynamic "ordered_cache_behavior" {
+    for_each = {
+      for i, b in local.extra_behaviors_sorted :
+      format("%03d-%s", i, b.path_pattern) => b
+    }
+
+    content {
+      path_pattern     = ordered_cache_behavior.value.path_pattern
+      target_origin_id = "${var.prefix}-${ordered_cache_behavior.value.origin_name}-origin"
+
+      allowed_methods  = ordered_cache_behavior.value.allowed_methods
+      cached_methods   = ordered_cache_behavior.value.cached_methods
+      viewer_protocol_policy = ordered_cache_behavior.value.viewer_protocol_policy
+
+      # Cache policy resolution:
+      cache_policy_id = coalesce(
+        try(ordered_cache_behavior.value.cache_policy_id, null),
+        try(data.aws_cloudfront_cache_policy.managed[ordered_cache_behavior.value.cache_policy_name].id, null),
+        aws_cloudfront_cache_policy.cache_policy.id # fallback to your default if nothing provided
+      )
+
+      compress = true
     }
   }
 

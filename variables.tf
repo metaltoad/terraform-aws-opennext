@@ -327,6 +327,7 @@ variable "warmer_options" {
 
 variable "cloudfront" {
   type = object({
+    root_redirect       = optional(list(string), [])
     aliases             = list(string)
     acm_certificate_arn = string
     comment             = optional(string)
@@ -417,6 +418,20 @@ variable "cloudfront" {
         uri_path = optional(bool)
       })))
     }))
+    extra_origins = optional(map(object({
+      domain_name = string
+      origin_type = optional(string, "custom") # "custom" or "s3" (you’ll likely use "custom")
+      origin_path = optional(string, null)
+    })), {})
+    extra_behaviors = optional(list(object({
+      path_pattern      = string
+      origin_name       = string
+      cache_policy_name = optional(string, null) # e.g. "Managed-CachingDisabled"
+      cache_policy_id   = optional(string, null) # optional override
+      allowed_methods   = optional(list(string), ["GET", "HEAD", "OPTIONS"])
+      cached_methods    = optional(list(string), ["GET", "HEAD", "OPTIONS"])
+      viewer_protocol_policy = optional(string, "redirect-to-https")
+    })), [])
   })
 }
 
