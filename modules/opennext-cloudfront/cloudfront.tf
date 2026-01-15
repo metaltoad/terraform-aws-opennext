@@ -3,16 +3,22 @@ locals {
   assets_origin_id             = "${var.prefix}-assets-origin"
   image_optimization_origin_id = "${var.prefix}-image-optimization-origin"
 
-  root_origin_id        = "${var.prefix}-root-origin"
-  managed_cache_policy_names = toset(compact([
-    for b in var.extra_behaviors : try(b.cache_policy_name, null)
-  ]))
+  root_origin_id = "${var.prefix}-root-origin"
+
   extra_behaviors_sorted = [
     for k in sort([
       for i, b in var.extra_behaviors :
       format("%03d|%03d|%s", 999 - length(b.path_pattern), i, b.path_pattern)
     ]) : var.extra_behaviors[tonumber(split("|", k)[1])]
   ]
+
+  # Only names that must be resolved via data source (exclude the TF-managed policy)
+  managed_cache_policy_names = toset(compact([
+    for b in var.extra_behaviors :
+    try(b.cache_policy_name, null)
+    if try(b.cache_policy_name, null) != null
+    && try(b.cache_policy_name, null) != aws_cloudfront_cache_policy.grammy_ncp_custom_caching.name
+  ]))
 }
 
 data "aws_cloudfront_cache_policy" "managed" {
