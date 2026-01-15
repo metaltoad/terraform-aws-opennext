@@ -76,7 +76,7 @@ resource "aws_cloudfront_origin_request_policy" "origin_request_policy" {
 }
 
 resource "aws_cloudfront_cache_policy" "grammy_ncp_custom_caching" {
-  name    = "grammy-ncp-custom-caching-tf"
+  name    = "${var.prefix}-ncp-custom-caching"
   comment = "Low TTL cache to enable compression support"
 
   default_ttl = 1
