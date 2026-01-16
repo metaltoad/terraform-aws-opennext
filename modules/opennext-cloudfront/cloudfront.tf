@@ -3,16 +3,22 @@ locals {
   assets_origin_id             = "${var.prefix}-assets-origin"
   image_optimization_origin_id = "${var.prefix}-image-optimization-origin"
 
-  root_origin_id        = "${var.prefix}-root-origin"
-  managed_cache_policy_names = toset(compact([
-    for b in var.extra_behaviors : try(b.cache_policy_name, null)
-  ]))
+  root_origin_id = "${var.prefix}-root-origin"
+
   extra_behaviors_sorted = [
     for k in sort([
       for i, b in var.extra_behaviors :
       format("%03d|%03d|%s", 999 - length(b.path_pattern), i, b.path_pattern)
     ]) : var.extra_behaviors[tonumber(split("|", k)[1])]
   ]
+
+  # Only names that must be resolved via data source (exclude the TF-managed policy)
+  managed_cache_policy_names = toset(compact([
+    for b in var.extra_behaviors :
+    try(b.cache_policy_name, null)
+    if try(b.cache_policy_name, null) != null
+    && try(b.cache_policy_name, null) != aws_cloudfront_cache_policy.grammy_ncp_custom_caching.name
+  ]))
 }
 
 data "aws_cloudfront_cache_policy" "managed" {
@@ -65,6 +71,32 @@ resource "aws_cloudfront_origin_request_policy" "origin_request_policy" {
     query_string_behavior = var.origin_request_policy.query_strings_config.query_string_behavior
     query_strings {
       items = var.origin_request_policy.query_strings_config.items
+    }
+  }
+}
+
+resource "aws_cloudfront_cache_policy" "grammy_ncp_custom_caching" {
+  name    = "${var.prefix}-ncp-custom-caching"
+  comment = "Low TTL cache to enable compression support"
+
+  default_ttl = 1
+  min_ttl     = 1
+  max_ttl     = 1
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    enable_accept_encoding_gzip   = true
+    enable_accept_encoding_brotli = true
+
+    cookies_config {
+      cookie_behavior = "none"
+    }
+
+    headers_config {
+      header_behavior = "none"
+    }
+
+    query_strings_config {
+      query_string_behavior = "none"
     }
   }
 }
@@ -427,8 +459,17 @@ resource "aws_cloudfront_distribution" "distribution" {
       # Cache policy resolution:
       cache_policy_id = coalesce(
         try(ordered_cache_behavior.value.cache_policy_id, null),
+
+        # If the behavior references your custom TF-managed policy by name
+        ordered_cache_behavior.value.cache_policy_name == aws_cloudfront_cache_policy.grammy_ncp_custom_caching.name
+          ? aws_cloudfront_cache_policy.grammy_ncp_custom_caching.id
+          : null,
+
+        # Otherwise resolve by name via data lookup (Managed-* or any existing name)
         try(data.aws_cloudfront_cache_policy.managed[ordered_cache_behavior.value.cache_policy_name].id, null),
-        aws_cloudfront_cache_policy.cache_policy.id # fallback to your default if nothing provided
+
+        # Fallback
+        aws_cloudfront_cache_policy.cache_policy.id
       )
 
       compress = true
