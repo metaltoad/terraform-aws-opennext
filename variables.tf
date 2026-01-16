@@ -439,3 +439,9 @@ variable "use_tagcache" {
   type    = bool
   default = false
 }
+
+variable "disable_dynamic_caching" {
+  type        = bool
+  description = "Disable CloudFront caching for dynamic routes (staging preview)."
+  default     = false
+}

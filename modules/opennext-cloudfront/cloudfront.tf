@@ -21,6 +21,12 @@ locals {
   ]))
 }
 
+locals {
+  dynamic_cache_policy_id = var.disable_dynamic_caching ? data.aws_cloudfront_cache_policy.caching_disabled.id : aws_cloudfront_cache_policy.cache_policy.id
+}
+
+
+
 data "aws_cloudfront_cache_policy" "managed" {
   for_each = local.managed_cache_policy_names
   name     = each.value
@@ -367,7 +373,7 @@ resource "aws_cloudfront_distribution" "distribution" {
     target_origin_id = local.server_origin_id
 
     response_headers_policy_id = aws_cloudfront_response_headers_policy.response_headers_policy.id
-    cache_policy_id            = aws_cloudfront_cache_policy.cache_policy.id
+    cache_policy_id = local.dynamic_cache_policy_id
     origin_request_policy_id = try(
       data.aws_cloudfront_origin_request_policy.origin_request_policy[0].id,
       aws_cloudfront_origin_request_policy.origin_request_policy[0].id
@@ -389,7 +395,7 @@ resource "aws_cloudfront_distribution" "distribution" {
     target_origin_id = local.server_origin_id
 
     response_headers_policy_id = aws_cloudfront_response_headers_policy.response_headers_policy.id
-    cache_policy_id            = aws_cloudfront_cache_policy.cache_policy.id
+    cache_policy_id = local.dynamic_cache_policy_id
     origin_request_policy_id = try(
       data.aws_cloudfront_origin_request_policy.origin_request_policy[0].id,
       aws_cloudfront_origin_request_policy.origin_request_policy[0].id
@@ -469,7 +475,9 @@ resource "aws_cloudfront_distribution" "distribution" {
         try(data.aws_cloudfront_cache_policy.managed[ordered_cache_behavior.value.cache_policy_name].id, null),
 
         # Fallback
-        aws_cloudfront_cache_policy.cache_policy.id
+        (var.disable_dynamic_caching
+          ? data.aws_cloudfront_cache_policy.caching_disabled.id
+          : aws_cloudfront_cache_policy.cache_policy.id)
       )
 
       compress = true
@@ -482,7 +490,7 @@ resource "aws_cloudfront_distribution" "distribution" {
     target_origin_id = local.server_origin_id
 
     response_headers_policy_id = aws_cloudfront_response_headers_policy.response_headers_policy.id
-    cache_policy_id            = aws_cloudfront_cache_policy.cache_policy.id
+    cache_policy_id = local.dynamic_cache_policy_id
     origin_request_policy_id = try(
       data.aws_cloudfront_origin_request_policy.origin_request_policy[0].id,
       aws_cloudfront_origin_request_policy.origin_request_policy[0].id

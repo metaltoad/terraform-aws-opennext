@@ -223,3 +223,8 @@ variable "extra_behaviors" {
     viewer_protocol_policy = optional(string, "redirect-to-https")
   }))
 }
+variable "disable_dynamic_caching" {
+  description = "If true, use Managed-CachingDisabled for dynamic behaviors (default, /api/*, /_next/data/*). Keep static assets cached."
+  type        = bool
+  default     = false
+}
