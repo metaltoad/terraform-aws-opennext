@@ -418,6 +418,7 @@ variable "cloudfront" {
         uri_path = optional(bool)
       })))
     }))
+    disable_dynamic_caching = optional(bool, false)
     extra_origins = optional(map(object({
       domain_name = string
       origin_type = optional(string, "custom") # "custom" or "s3" (you’ll likely use "custom")
@@ -438,10 +439,4 @@ variable "cloudfront" {
 variable "use_tagcache" {
   type    = bool
   default = false
-}
-
-variable "disable_dynamic_caching" {
-  type        = bool
-  description = "Disable CloudFront caching for dynamic routes (staging preview)."
-  default     = false
 }

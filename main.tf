@@ -276,5 +276,5 @@ module "cloudfront" {
   extra_origins   = try(var.cloudfront.extra_origins, {})
   extra_behaviors = try(var.cloudfront.extra_behaviors, [])
 
-  disable_dynamic_caching = var.disable_dynamic_caching
+  disable_dynamic_caching = try(var.cloudfront.disable_dynamic_caching, false)
 }
