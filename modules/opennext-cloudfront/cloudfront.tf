@@ -12,14 +12,27 @@ locals {
     ]) : var.extra_behaviors[tonumber(split("|", k)[1])]
   ]
 
-  # Only names that must be resolved via data source (exclude the TF-managed policy)
+  ncp_custom_caching_name = "${var.prefix}-ncp-custom-caching"
+
+  uses_ncp_custom_caching = length([
+    for b in var.extra_behaviors : 1
+    if try(b.cache_policy_name, null) == local.ncp_custom_caching_name
+  ]) > 0
+
+  # Only names that should be resolved via data source (exclude the TF-managed custom policy)
   managed_cache_policy_names = toset(compact([
     for b in var.extra_behaviors :
     try(b.cache_policy_name, null)
     if try(b.cache_policy_name, null) != null
-    && try(b.cache_policy_name, null) != aws_cloudfront_cache_policy.grammy_ncp_custom_caching.name
+    && try(b.cache_policy_name, null) != local.ncp_custom_caching_name
   ]))
 }
+
+locals {
+  dynamic_cache_policy_id = var.disable_dynamic_caching ? data.aws_cloudfront_cache_policy.caching_disabled.id : aws_cloudfront_cache_policy.cache_policy.id
+}
+
+
 
 data "aws_cloudfront_cache_policy" "managed" {
   for_each = local.managed_cache_policy_names
@@ -75,8 +88,9 @@ resource "aws_cloudfront_origin_request_policy" "origin_request_policy" {
   }
 }
 
-resource "aws_cloudfront_cache_policy" "grammy_ncp_custom_caching" {
-  name    = "${var.prefix}-ncp-custom-caching"
+resource "aws_cloudfront_cache_policy" "ncp_custom_caching" {
+  count   = local.uses_ncp_custom_caching ? 1 : 0
+  name    = local.ncp_custom_caching_name
   comment = "Low TTL cache to enable compression support"
 
   default_ttl = 1
@@ -87,17 +101,9 @@ resource "aws_cloudfront_cache_policy" "grammy_ncp_custom_caching" {
     enable_accept_encoding_gzip   = true
     enable_accept_encoding_brotli = true
 
-    cookies_config {
-      cookie_behavior = "none"
-    }
-
-    headers_config {
-      header_behavior = "none"
-    }
-
-    query_strings_config {
-      query_string_behavior = "none"
-    }
+    cookies_config { cookie_behavior = "none" }
+    headers_config  { header_behavior = "none" }
+    query_strings_config { query_string_behavior = "none" }
   }
 }
 
@@ -367,7 +373,7 @@ resource "aws_cloudfront_distribution" "distribution" {
     target_origin_id = local.server_origin_id
 
     response_headers_policy_id = aws_cloudfront_response_headers_policy.response_headers_policy.id
-    cache_policy_id            = aws_cloudfront_cache_policy.cache_policy.id
+    cache_policy_id = local.dynamic_cache_policy_id
     origin_request_policy_id = try(
       data.aws_cloudfront_origin_request_policy.origin_request_policy[0].id,
       aws_cloudfront_origin_request_policy.origin_request_policy[0].id
@@ -389,7 +395,7 @@ resource "aws_cloudfront_distribution" "distribution" {
     target_origin_id = local.server_origin_id
 
     response_headers_policy_id = aws_cloudfront_response_headers_policy.response_headers_policy.id
-    cache_policy_id            = aws_cloudfront_cache_policy.cache_policy.id
+    cache_policy_id = local.dynamic_cache_policy_id
     origin_request_policy_id = try(
       data.aws_cloudfront_origin_request_policy.origin_request_policy[0].id,
       aws_cloudfront_origin_request_policy.origin_request_policy[0].id
@@ -460,9 +466,9 @@ resource "aws_cloudfront_distribution" "distribution" {
       cache_policy_id = coalesce(
         try(ordered_cache_behavior.value.cache_policy_id, null),
 
-        # If the behavior references your custom TF-managed policy by name
-        ordered_cache_behavior.value.cache_policy_name == aws_cloudfront_cache_policy.grammy_ncp_custom_caching.name
-          ? aws_cloudfront_cache_policy.grammy_ncp_custom_caching.id
+        # If the behavior references the TF-managed custom policy by name
+        ordered_cache_behavior.value.cache_policy_name == local.ncp_custom_caching_name
+          ? aws_cloudfront_cache_policy.ncp_custom_caching[0].id
           : null,
 
         # Otherwise resolve by name via data lookup (Managed-* or any existing name)
@@ -482,7 +488,7 @@ resource "aws_cloudfront_distribution" "distribution" {
     target_origin_id = local.server_origin_id
 
     response_headers_policy_id = aws_cloudfront_response_headers_policy.response_headers_policy.id
-    cache_policy_id            = aws_cloudfront_cache_policy.cache_policy.id
+    cache_policy_id = local.dynamic_cache_policy_id
     origin_request_policy_id = try(
       data.aws_cloudfront_origin_request_policy.origin_request_policy[0].id,
       aws_cloudfront_origin_request_policy.origin_request_policy[0].id

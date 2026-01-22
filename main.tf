@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "6.14.1"
+      version = ">= 6.14.1, < 7.0.0"
     }
   }
 }
@@ -275,4 +275,6 @@ module "cloudfront" {
 
   extra_origins   = try(var.cloudfront.extra_origins, {})
   extra_behaviors = try(var.cloudfront.extra_behaviors, [])
+
+  disable_dynamic_caching = try(var.cloudfront.disable_dynamic_caching, false)
 }
