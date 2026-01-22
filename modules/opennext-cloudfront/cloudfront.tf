@@ -12,19 +12,19 @@ locals {
     ]) : var.extra_behaviors[tonumber(split("|", k)[1])]
   ]
 
-  # logical name that means "use the TF-created custom policy in THIS env"
-  ncp_custom_cache_policy_key = "ncp_custom"
+  ncp_custom_caching_name = "${var.prefix}-ncp-custom-caching"
 
-  uses_ncp_custom_cache_policy = length([
+  uses_ncp_custom_caching = length([
     for b in var.extra_behaviors : 1
-    if try(b.cache_policy_name, null) == local.ncp_custom_cache_policy_key
+    if try(b.cache_policy_name, null) == local.ncp_custom_caching_name
   ]) > 0
 
+  # Only names that should be resolved via data source (exclude the TF-managed custom policy)
   managed_cache_policy_names = toset(compact([
     for b in var.extra_behaviors :
     try(b.cache_policy_name, null)
     if try(b.cache_policy_name, null) != null
-    && try(b.cache_policy_name, null) != local.ncp_custom_cache_policy_key
+    && try(b.cache_policy_name, null) != local.ncp_custom_caching_name
   ]))
 }
 
@@ -88,9 +88,9 @@ resource "aws_cloudfront_origin_request_policy" "origin_request_policy" {
   }
 }
 
-resource "aws_cloudfront_cache_policy" "grammy_ncp_custom_caching" {
-  count   = local.uses_ncp_custom_cache_policy ? 1 : 0
-  name    = "${var.prefix}-ncp-custom-caching"
+resource "aws_cloudfront_cache_policy" "ncp_custom_caching" {
+  count   = local.uses_ncp_custom_caching ? 1 : 0
+  name    = local.ncp_custom_caching_name
   comment = "Low TTL cache to enable compression support"
 
   default_ttl = 1
@@ -101,17 +101,9 @@ resource "aws_cloudfront_cache_policy" "grammy_ncp_custom_caching" {
     enable_accept_encoding_gzip   = true
     enable_accept_encoding_brotli = true
 
-    cookies_config {
-      cookie_behavior = "none"
-    }
-
-    headers_config {
-      header_behavior = "none"
-    }
-
-    query_strings_config {
-      query_string_behavior = "none"
-    }
+    cookies_config { cookie_behavior = "none" }
+    headers_config  { header_behavior = "none" }
+    query_strings_config { query_string_behavior = "none" }
   }
 }
 
@@ -474,15 +466,15 @@ resource "aws_cloudfront_distribution" "distribution" {
       cache_policy_id = coalesce(
         try(ordered_cache_behavior.value.cache_policy_id, null),
 
-        # our TF-created policy (only when caller uses cache_policy_name = "ncp_custom")
-        ordered_cache_behavior.value.cache_policy_name == local.ncp_custom_cache_policy_key
+        # If the behavior references the TF-managed custom policy by name
+        ordered_cache_behavior.value.cache_policy_name == local.ncp_custom_caching_name
           ? aws_cloudfront_cache_policy.ncp_custom_caching[0].id
           : null,
 
-        # managed / already-existing by name
+        # Otherwise resolve by name via data lookup (Managed-* or any existing name)
         try(data.aws_cloudfront_cache_policy.managed[ordered_cache_behavior.value.cache_policy_name].id, null),
 
-        # fallback
+        # Fallback
         aws_cloudfront_cache_policy.cache_policy.id
       )
 
