@@ -12,12 +12,19 @@ locals {
     ]) : var.extra_behaviors[tonumber(split("|", k)[1])]
   ]
 
-  # Only names that must be resolved via data source (exclude the TF-managed policy)
+  # logical name that means "use the TF-created custom policy in THIS env"
+  ncp_custom_cache_policy_key = "ncp_custom"
+
+  uses_ncp_custom_cache_policy = length([
+    for b in var.extra_behaviors : 1
+    if try(b.cache_policy_name, null) == local.ncp_custom_cache_policy_key
+  ]) > 0
+
   managed_cache_policy_names = toset(compact([
     for b in var.extra_behaviors :
     try(b.cache_policy_name, null)
     if try(b.cache_policy_name, null) != null
-    && try(b.cache_policy_name, null) != aws_cloudfront_cache_policy.grammy_ncp_custom_caching.name
+    && try(b.cache_policy_name, null) != local.ncp_custom_cache_policy_key
   ]))
 }
 
@@ -82,6 +89,7 @@ resource "aws_cloudfront_origin_request_policy" "origin_request_policy" {
 }
 
 resource "aws_cloudfront_cache_policy" "grammy_ncp_custom_caching" {
+  count   = local.uses_ncp_custom_cache_policy ? 1 : 0
   name    = "${var.prefix}-ncp-custom-caching"
   comment = "Low TTL cache to enable compression support"
 
@@ -466,18 +474,16 @@ resource "aws_cloudfront_distribution" "distribution" {
       cache_policy_id = coalesce(
         try(ordered_cache_behavior.value.cache_policy_id, null),
 
-        # If the behavior references your custom TF-managed policy by name
-        ordered_cache_behavior.value.cache_policy_name == aws_cloudfront_cache_policy.grammy_ncp_custom_caching.name
-          ? aws_cloudfront_cache_policy.grammy_ncp_custom_caching.id
+        # our TF-created policy (only when caller uses cache_policy_name = "ncp_custom")
+        ordered_cache_behavior.value.cache_policy_name == local.ncp_custom_cache_policy_key
+          ? aws_cloudfront_cache_policy.ncp_custom_caching[0].id
           : null,
 
-        # Otherwise resolve by name via data lookup (Managed-* or any existing name)
+        # managed / already-existing by name
         try(data.aws_cloudfront_cache_policy.managed[ordered_cache_behavior.value.cache_policy_name].id, null),
 
-        # Fallback
-        (var.disable_dynamic_caching
-          ? data.aws_cloudfront_cache_policy.caching_disabled.id
-          : aws_cloudfront_cache_policy.cache_policy.id)
+        # fallback
+        aws_cloudfront_cache_policy.cache_policy.id
       )
 
       compress = true
